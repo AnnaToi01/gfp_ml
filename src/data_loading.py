@@ -76,7 +76,9 @@ def prepare_data_multiple_proteins(folderpath: str, sequence_row_label: str="seq
 
     for i, filename in enumerate(os.listdir(folderpath)):
         filepath: str = os.path.join(folderpath, filename)
-        df_tmp: pd.DataFrame = prepare_data_protein(filepath, sequence_row_label, target_row_label, rescale)
+        df_tmp: pd.DataFrame = prepare_data_protein(filepath, rescale=rescale,
+                                                    sequence_row_label=sequence_row_label,
+                                                    target_row_label=target_row_label)
         df_tmp["source_id"] = i
         dfs.append(df_tmp)
 
@@ -89,7 +91,8 @@ def prepare_data_multiple_proteins(folderpath: str, sequence_row_label: str="seq
     
     return dfs if not concat_peaks else pd.concat(dfs, ignore_index=True)
 
-def split_data(train_df: pd.DataFrame, data_cfg: DataConfig, unlabeled_df: Optional[pd.DataFrame]=None, random: bool=True)->Tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame]:
+def split_data(train_df: pd.DataFrame, data_cfg: DataConfig, unlabeled_df: Optional[pd.DataFrame]=None, random: bool=True,
+               seed: Optional[int]=None)->Tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame]:
     """
         Splits the data either by percentages ("perc") or by mutation count ("mut").
 
@@ -101,6 +104,9 @@ def split_data(train_df: pd.DataFrame, data_cfg: DataConfig, unlabeled_df: Optio
             Optional unlabeled dataset.
         random : bool
             If False, uses a fixed random seed.
+        seed : Optional[int]
+            When given, overrides `random` and pins every split to this value.
+            Required for run-to-run comparability.
         split : str
             Either "perc" or "mut" or "both".
 
@@ -110,7 +116,7 @@ def split_data(train_df: pd.DataFrame, data_cfg: DataConfig, unlabeled_df: Optio
             train, validation and unlabeled datasets.
     """
 
-    random_state: int = None if random else 42
+    random_state: int = seed if seed is not None else (None if random else 42)
 
     if data_cfg.split == "perc":
         val_size: float = data_cfg.val_size - 1e-6

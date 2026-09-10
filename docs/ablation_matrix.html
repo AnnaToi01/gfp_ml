@@ -1,0 +1,848 @@
+<title>Shotgun GFP Ablation Matrix</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Spectral:ital,wght@0,400;0,600;1,400&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+  :root {
+    --ground:      #F4F7F4;
+    --surface:     #FFFFFF;
+    --surface-alt: #EAEFEA;
+    --ink:         #16201B;
+    --ink-dim:     #59685F;
+    --ink-faint:   #8A9790;
+    --rule:        #D2DAD4;
+    --rule-strong: #B4C0B8;
+    --accent:      #1D6B58;
+    --accent-soft: #E2EEE9;
+    --warn:        #9C5C16;
+    --warn-soft:   #F6EADA;
+    --crit:        #96302A;
+    --crit-soft:   #F7E5E3;
+    --ok:          #2E7D5B;
+    --ok-soft:     #E3F0E8;
+
+    --f-display: "Spectral", "Iowan Old Style", Georgia, serif;
+    --f-body:    "IBM Plex Sans", "Helvetica Neue", Arial, sans-serif;
+    --f-mono:    "IBM Plex Mono", ui-monospace, "SF Mono", Menlo, monospace;
+
+    --col: 68ch;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --ground:      #0E1310;
+      --surface:     #161D18;
+      --surface-alt: #1D251F;
+      --ink:         #E3EAE4;
+      --ink-dim:     #9EAEA5;
+      --ink-faint:   #6E7D74;
+      --rule:        #2A342D;
+      --rule-strong: #3C483F;
+      --accent:      #63C3A4;
+      --accent-soft: #16281F;
+      --warn:        #D69A4E;
+      --warn-soft:   #2A2115;
+      --crit:        #E08279;
+      --crit-soft:   #2C1917;
+      --ok:          #6EC195;
+      --ok-soft:     #16261D;
+    }
+  }
+  :root[data-theme="dark"] {
+    --ground:      #0E1310;
+    --surface:     #161D18;
+    --surface-alt: #1D251F;
+    --ink:         #E3EAE4;
+    --ink-dim:     #9EAEA5;
+    --ink-faint:   #6E7D74;
+    --rule:        #2A342D;
+    --rule-strong: #3C483F;
+    --accent:      #63C3A4;
+    --accent-soft: #16281F;
+    --warn:        #D69A4E;
+    --warn-soft:   #2A2115;
+    --crit:        #E08279;
+    --crit-soft:   #2C1917;
+    --ok:          #6EC195;
+    --ok-soft:     #16261D;
+  }
+
+  * { box-sizing: border-box; }
+
+  body {
+    background: var(--ground);
+    color: var(--ink);
+    font-family: var(--f-body);
+    font-size: 16px;
+    line-height: 1.65;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  .wrap {
+    max-width: 1180px;
+    margin: 0 auto;
+    padding: 0 28px 96px;
+  }
+
+  /* ---------- masthead ---------- */
+  header.mast {
+    display: flex;
+    flex-direction: column;
+    gap: 18px;
+    padding: 64px 0 28px;
+    border-bottom: 2px solid var(--rule-strong);
+    margin-bottom: 44px;
+  }
+  .eyebrow {
+    font-family: var(--f-mono);
+    font-size: 11.5px;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--accent);
+  }
+  h1 {
+    font-family: var(--f-display);
+    font-weight: 600;
+    font-size: clamp(2.1rem, 4.6vw, 3.15rem);
+    line-height: 1.08;
+    letter-spacing: -0.018em;
+    margin: 0;
+    text-wrap: balance;
+    max-width: 24ch;
+  }
+  .standfirst {
+    font-family: var(--f-display);
+    font-size: 1.17rem;
+    line-height: 1.55;
+    color: var(--ink-dim);
+    max-width: 62ch;
+    margin: 0;
+  }
+  .mast-meta {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px 28px;
+    font-family: var(--f-mono);
+    font-size: 12px;
+    color: var(--ink-faint);
+    padding-top: 6px;
+  }
+  .mast-meta b { color: var(--ink-dim); font-weight: 500; }
+
+  /* ---------- sections ---------- */
+  section { margin-bottom: 60px; }
+  .sec-head {
+    display: flex;
+    align-items: baseline;
+    gap: 14px;
+    border-bottom: 1px solid var(--rule);
+    padding-bottom: 9px;
+    margin-bottom: 22px;
+  }
+  .sec-head h2 {
+    font-family: var(--f-display);
+    font-size: 1.62rem;
+    font-weight: 600;
+    letter-spacing: -0.01em;
+    margin: 0;
+  }
+  .sec-head .tag {
+    font-family: var(--f-mono);
+    font-size: 11px;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--ink-faint);
+    margin-left: auto;
+    white-space: nowrap;
+  }
+  h3 {
+    font-family: var(--f-body);
+    font-size: 1rem;
+    font-weight: 600;
+    letter-spacing: 0.005em;
+    margin: 30px 0 8px;
+  }
+  p { max-width: var(--col); margin: 0 0 14px; }
+  p.wide { max-width: 88ch; }
+  a { color: var(--accent); text-underline-offset: 2px; }
+  code {
+    font-family: var(--f-mono);
+    font-size: 0.875em;
+    background: var(--surface-alt);
+    padding: 0.1em 0.36em;
+    border-radius: 3px;
+  }
+  strong { font-weight: 600; }
+
+  /* ---------- blockers ---------- */
+  .blockers { display: flex; flex-direction: column; gap: 16px; }
+  .blocker {
+    background: var(--surface);
+    border: 1px solid var(--rule);
+    border-left: 4px solid var(--crit);
+    border-radius: 3px;
+    padding: 20px 24px;
+  }
+  .blocker.warn { border-left-color: var(--warn); }
+  .blocker-head {
+    display: flex;
+    align-items: baseline;
+    gap: 12px;
+    flex-wrap: wrap;
+    margin-bottom: 8px;
+  }
+  .blocker-head h3 { margin: 0; font-size: 1.05rem; }
+  .blocker p { margin-bottom: 10px; max-width: 82ch; }
+  .blocker p:last-child { margin-bottom: 0; }
+
+  .chip {
+    font-family: var(--f-mono);
+    font-size: 10.5px;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    padding: 2px 8px;
+    border-radius: 2px;
+    white-space: nowrap;
+    font-weight: 500;
+  }
+  .chip.crit { background: var(--crit-soft); color: var(--crit); }
+  .chip.warn { background: var(--warn-soft); color: var(--warn); }
+  .chip.ok   { background: var(--ok-soft);   color: var(--ok); }
+  .chip.neu  { background: var(--surface-alt); color: var(--ink-dim); }
+
+  /* ---------- tables ---------- */
+  .scroller {
+    overflow-x: auto;
+    border: 1px solid var(--rule);
+    border-radius: 3px;
+    background: var(--surface);
+  }
+  table {
+    border-collapse: collapse;
+    width: 100%;
+    font-size: 13.5px;
+    min-width: 720px;
+  }
+  thead th {
+    text-align: left;
+    font-family: var(--f-mono);
+    font-size: 10.5px;
+    letter-spacing: 0.09em;
+    text-transform: uppercase;
+    color: var(--ink-dim);
+    font-weight: 500;
+    padding: 11px 14px;
+    border-bottom: 1.5px solid var(--rule-strong);
+    background: var(--surface-alt);
+    white-space: nowrap;
+    vertical-align: bottom;
+  }
+  tbody td {
+    padding: 10px 14px;
+    border-bottom: 1px solid var(--rule);
+    vertical-align: top;
+    line-height: 1.5;
+  }
+  tbody tr:last-child td { border-bottom: none; }
+  tbody tr.groupsep td { border-top: 1.5px solid var(--rule-strong); }
+  td.id, th.id {
+    font-family: var(--f-mono);
+    font-weight: 500;
+    color: var(--accent);
+    white-space: nowrap;
+  }
+  td.flag { font-family: var(--f-mono); font-size: 12px; white-space: nowrap; }
+  td.flag.base { color: var(--ink-faint); }
+  td.flag.changed { color: var(--ink); font-weight: 500; }
+  .grouprow td {
+    background: var(--surface-alt);
+    font-family: var(--f-mono);
+    font-size: 10.5px;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--ink-dim);
+    padding: 7px 14px;
+    border-bottom: 1px solid var(--rule-strong);
+  }
+  .num { font-variant-numeric: tabular-nums; }
+
+  /* ---------- code block ---------- */
+  pre {
+    font-family: var(--f-mono);
+    font-size: 12.5px;
+    line-height: 1.6;
+    background: var(--surface);
+    border: 1px solid var(--rule);
+    border-radius: 3px;
+    padding: 16px 18px;
+    overflow-x: auto;
+    margin: 0 0 16px;
+  }
+  pre .c { color: var(--ink-faint); }
+  pre .k { color: var(--accent); }
+
+  /* ---------- improvement list ---------- */
+  .imps { display: flex; flex-direction: column; gap: 0; }
+  .imp {
+    display: grid;
+    grid-template-columns: 130px 1fr;
+    gap: 20px;
+    padding: 16px 0;
+    border-bottom: 1px solid var(--rule);
+    align-items: start;
+  }
+  .imp:last-child { border-bottom: none; }
+  .imp-label { display: flex; flex-direction: column; gap: 6px; align-items: flex-start; }
+  .imp-title { font-weight: 600; font-size: 0.97rem; margin: 0 0 5px; }
+  .imp-body { max-width: 80ch; }
+  .imp-body p { margin: 0 0 8px; max-width: none; }
+  .imp-body p:last-child { margin: 0; }
+  .loc {
+    font-family: var(--f-mono);
+    font-size: 11.5px;
+    color: var(--ink-faint);
+  }
+
+  ul.tight { max-width: var(--col); padding-left: 20px; margin: 0 0 14px; }
+  ul.tight.wide { max-width: 86ch; }
+  ul.tight li { margin-bottom: 6px; }
+
+  .note {
+    background: var(--accent-soft);
+    border-left: 3px solid var(--accent);
+    padding: 14px 18px;
+    border-radius: 2px;
+    margin: 0 0 18px;
+  }
+  .note p { margin: 0; max-width: 80ch; }
+
+  @media (max-width: 620px) {
+    .wrap { padding: 0 18px 64px; }
+    header.mast { padding-top: 40px; }
+    .imp { grid-template-columns: 1fr; gap: 8px; }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    * { animation: none !important; transition: none !important; }
+  }
+  :focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+</style>
+
+<div class="wrap">
+
+<header class="mast">
+  <div class="eyebrow">paper_shotgun_gfp · experiment protocol</div>
+  <h1>Shotgun GFP Ablation Matrix</h1>
+  <p class="standfirst">A flag-gated harness and condition set for testing what the active-learning machinery in <code>src/utls.py</code> actually contributes — plus the three problems that make any comparison meaningless until they're fixed.</p>
+  <div class="mast-meta">
+    <span><b>Target</b> 1× H100 80GB · 12 cores / 24 threads · 240 GiB</span>
+    <span><b>Stage 1</b> 8 runs</span>
+    <span><b>Stage 2</b> 15 conditions × 5 seeds</span>
+  </div>
+</header>
+
+<section>
+  <div class="sec-head">
+    <h2>Fix before you measure anything</h2>
+    <span class="tag">prerequisites</span>
+  </div>
+  <p class="wide">These aren't improvements to test — they're defects in the measurement apparatus. Running the matrix without them produces numbers that can't be attributed to any condition.</p>
+
+  <div class="blockers">
+
+    <div class="blocker">
+      <div class="blocker-head">
+        <h3>Nothing is seeded</h3>
+        <span class="chip crit">blocks comparison</span>
+      </div>
+      <p><code>run_training</code> calls <code>split_data</code> without <code>random=False</code>, so <code>random_state=None</code> (<span class="loc">data_loading.py:115</span>). There is no <code>torch.manual_seed</code>, <code>np.random.seed</code> or <code>random.seed</code> anywhere in the repo, and <code>update_state</code>'s <code>random.shuffle</code> is unseeded too. <code>setup()</code> sets cuDNN flags but no seeds.</p>
+      <p>Every run draws a different train/val/pool split. Two runs of the <em>same</em> condition differ, so a gap between two conditions is uninterpretable. Seed everything from one CLI <code>--seed</code>, and pass it into <code>split_data</code>.</p>
+    </div>
+
+    <div class="blocker">
+      <div class="blocker-head">
+        <h3>The evaluation set changes every round</h3>
+        <span class="chip crit">invalidates AL curves</span>
+      </div>
+      <p><code>active_learning</code> rebuilds <code>unlabeled_dataset = Subset(base_dataset, state.unlabeled)</code> <em>after</em> <code>update_state</code> has removed the round's acquisitions, then passes it to <code>eval_round</code> as the test set (<span class="loc">utls.py:706-711</span>).</p>
+      <p>Two things break. Across rounds, the test set shrinks by 96 and systematically loses whichever sequences the acquisition function judged most informative — so a rising R² mixes genuine model improvement with the test set getting easier. Across conditions, each one acquires <em>different</em> points and is therefore scored on a <em>different</em> test set, which makes the whole matrix incomparable.</p>
+      <p>Carve a frozen held-out test split before round 0, exclude it from the acquirable pool, and evaluate on it identically every round and in every condition.</p>
+    </div>
+
+    <div class="blocker">
+      <div class="blocker-head">
+        <h3>There is no random-acquisition baseline</h3>
+        <span class="chip crit">unfalsifiable claim</span>
+      </div>
+      <p>Every condition below is a variation on <em>how</em> to choose sequences. Without a run that spends the same 960-sample budget on uniformly random picks, "active learning helps" has nothing to be measured against — and for point-mutant libraries with a narrow fitness spread, random is a genuinely strong baseline that frequently wins.</p>
+      <p>This is condition <span class="chip neu">S1-R</span> in Stage 1, and it should be the first thing you run.</p>
+    </div>
+
+    <div class="blocker warn">
+      <div class="blocker-head">
+        <h3>Validation set is fed from the acquisition pool</h3>
+        <span class="chip warn">confound</span>
+      </div>
+      <p><code>update_state</code> diverts 5% of each round's acquisitions into validation (<code>n_val = max(1, int(0.05 * len(new_samples)))</code>, <span class="loc">utls.py:255</span>). Validation therefore grows over rounds and drifts toward whatever the acquisition function favours — while being used for early stopping and best-model selection.</p>
+      <p>So conditions with different acquisition strategies get systematically different validation sets, which changes model selection independently of the strategy's real merit. Either freeze validation up front, or keep the 5% diversion and treat it as part of the condition. Freezing is cleaner.</p>
+    </div>
+
+    <div class="blocker warn">
+      <div class="blocker-head">
+        <h3>Early stopping cannot fire during AL rounds</h3>
+        <span class="chip warn">silent no-op</span>
+      </div>
+      <p><code>ModelConfig.patience = 20</code>, but AL rounds 1–10 train for <code>epochs = 11</code>. <code>running_patience</code> can only reach 11, so the early-stopping branch is unreachable except in round 0 (99 epochs, via <code>starting_epoch_multiplier = 9</code>).</p>
+      <p>Not necessarily wrong — but it means "best model on validation" is really "last epoch" for ten of the eleven rounds. Decide deliberately; don't leave it accidental.</p>
+    </div>
+
+  </div>
+</section>
+
+<section>
+  <div class="sec-head">
+    <h2>What's actually live right now</h2>
+    <span class="tag">mechanism audit</span>
+  </div>
+  <p class="wide">Three of the four things that distinguish this from vanilla uncertainty sampling are dead code. This is the reason the matrix is worth running at all.</p>
+  <div class="scroller">
+    <table>
+      <thead>
+        <tr>
+          <th class="id">Mechanism</th>
+          <th>Location</th>
+          <th>Status</th>
+          <th>Why</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td class="id">Clustered budget</td>
+          <td class="flag">utls.py:581</td>
+          <td><span class="chip ok">live</span></td>
+          <td>Spectral 2-way split with size-proportional budget allocation. Works, but is the slowest thing in the loop.</td>
+        </tr>
+        <tr>
+          <td class="id">Embedding coverage</td>
+          <td class="flag">utls.py:475</td>
+          <td><span class="chip ok">live</span></td>
+          <td><code>min_dist</code> via <code>torch.cdist</code> to the labeled set, weighted <code>1 − alpha</code> = 0.62.</td>
+        </tr>
+        <tr>
+          <td class="id">Batch diversity</td>
+          <td class="flag">utls.py:603</td>
+          <td><span class="chip crit">dead</span></td>
+          <td>One-hot tensors passed where strings are expected. Tensors hash by identity, so every k-mer intersection is empty, all distances collapse to 1.0, and the function returns <code>range(k)</code> — i.e. plain top-k by acquisition. Verified by <code>tests/check_select_distance_based.py</code>.</td>
+        </tr>
+        <tr>
+          <td class="id">New-query upweighting</td>
+          <td class="flag">model.py:340</td>
+          <td><span class="chip crit">dead</span></td>
+          <td><code>weights</code> is built from <code>new_query_weight = 7.0</code> and the epoch decay, then unconditionally overwritten by <code>torch.ones_like(yb)</code> on the next line.</td>
+        </tr>
+        <tr>
+          <td class="id">Exploitation term</td>
+          <td class="flag">utls.py:476-480</td>
+          <td><span class="chip warn">computed, unused</span></td>
+          <td><code>mean</code> (predicted brightness) is returned by <code>predict</code>, min-max normalized, squeezed — then never enters <code>acquisition</code>. Reads like a removed third term.</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<section>
+  <div class="sec-head">
+    <h2>Harness: one code path, flags default to current behaviour</h2>
+    <span class="tag">implementation</span>
+  </div>
+  <p class="wide">Don't fork the repo per condition — you'll never keep four branches in sync and you can't diff results reliably. Add one config object whose defaults reproduce today's behaviour exactly, so the original is condition <span class="chip neu">C0</span> rather than a separate codebase, and each fix is a single flag flip.</p>
+
+  <pre><span class="c"># src/configs.py</span>
+@dataclass
+class AblationConfig:
+    <span class="c"># --- acquisition scoring ---</span>
+    acquisition:      str  = <span class="k">"uncert_dist"</span>  <span class="c"># uncert_dist | random | uncert | dist | greedy</span>
+    normalize:        str  = <span class="k">"minmax"</span>       <span class="c"># minmax | rank</span>
+    beta_mean:        float = 0.0            <span class="c"># weight on the unused exploitation term</span>
+
+    <span class="c"># --- batch selection ---</span>
+    cluster:          str  = <span class="k">"spectral"</span>     <span class="c"># spectral | kmeans | none</span>
+    diversity_input:  str  = <span class="k">"tensor"</span>       <span class="c"># tensor (current, broken) | sequence</span>
+    diversity_metric: str  = <span class="k">"kmer"</span>         <span class="c"># kmer | hamming | embedding | none</span>
+
+    <span class="c"># --- training ---</span>
+    use_query_weight: bool = False           <span class="c"># honour al_cfg.new_query_weight</span>
+
+    <span class="c"># --- measurement apparatus (see prerequisites) ---</span>
+    seed:             int  = 0
+    frozen_eval:      bool = False           <span class="c"># fixed held-out test set</span>
+    frozen_val:       bool = False           <span class="c"># no 5% diversion into val</span>
+</pre>
+
+  <h3>Where each flag is gated</h3>
+  <ul class="tight wide">
+    <li><code>acquisition</code>, <code>normalize</code>, <code>beta_mean</code> — inside <code>compute_acquisition</code> (<span class="loc">utls.py:450</span>). <code>random</code> returns <code>np.random.rand(n)</code>, which reuses the whole downstream path unchanged.</li>
+    <li><code>cluster</code> — replaces the <code>SpectralClustering</code> call (<span class="loc">utls.py:581</span>); <code>none</code> assigns every point to cluster 0 so <code>compute_assignments</code> hands the full budget to one group.</li>
+    <li><code>diversity_input</code> / <code>diversity_metric</code> — <code>get_queried_samples</code> needs the sequence strings, which it currently never receives. Pass <code>pd.concat([train_df, unlabeled_df])["sequence"].tolist()</code> down from <code>active_learning</code> and index it with <code>top_global</code>.</li>
+    <li><code>use_query_weight</code> — delete the overwriting <code>weights = torch.ones_like(yb)</code> line when true (<span class="loc">model.py:340</span>).</li>
+    <li><code>seed</code>, <code>frozen_eval</code>, <code>frozen_val</code> — <code>setup()</code>, <code>split_data</code>, <code>active_learning</code>, <code>update_state</code>.</li>
+  </ul>
+
+  <div class="note">
+    <p>One entry point, <code>run_experiment.py --condition C7 --seed 3</code>, resolves the condition name to a flag set, runs it, and appends one row per round to a shared results CSV: condition, seed, round, labeled-set size, and every metric on the <em>frozen</em> test set. That CSV is the deliverable — the existing <code>project/results/</code> tree is per-run plots and won't aggregate.</p>
+  </div>
+</section>
+
+<section>
+  <div class="sec-head">
+    <h2>Stage 1 — validate the apparatus</h2>
+    <span class="tag">8 runs · ~2 h</span>
+  </div>
+  <p class="wide">Cheap runs that answer questions Stage 2 depends on. Do these first; if S1-K disagrees with S1-S you cannot use KMeans as the Stage 2 reference and the whole matrix gets much more expensive.</p>
+  <div class="scroller">
+    <table>
+      <thead>
+        <tr>
+          <th class="id">Run</th>
+          <th>Setup</th>
+          <th>Question it answers</th>
+          <th>Decision it drives</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td class="id">S1-Z</td>
+          <td>C0 defaults, same seed, run twice</td>
+          <td>Is the pipeline deterministic once seeded?</td>
+          <td>If the two runs differ, seeding is incomplete — stop and finish it.</td>
+        </tr>
+        <tr>
+          <td class="id">S1-R</td>
+          <td><code>acquisition=random</code>, 5 seeds</td>
+          <td>What does the 960-sample budget buy with no strategy at all?</td>
+          <td>The reference line every Stage 2 condition is judged against.</td>
+        </tr>
+        <tr>
+          <td class="id">S1-S</td>
+          <td><code>cluster=spectral</code>, 1 seed, timed</td>
+          <td>Actual wall-clock and peak RAM of the eigensolver on a 8.9k pool.</td>
+          <td>Whether spectral is affordable at all.</td>
+        </tr>
+        <tr>
+          <td class="id">S1-K</td>
+          <td><code>cluster=kmeans</code>, same seed as S1-S</td>
+          <td>Does KMeans produce a comparable 2-way split and comparable metrics?</td>
+          <td>If yes, KMeans becomes the Stage 2 reference and every condition gets ~100× cheaper.</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<section>
+  <div class="sec-head">
+    <h2>Stage 2 — the condition matrix</h2>
+    <span class="tag">15 conditions × 5 seeds</span>
+  </div>
+  <p class="wide">Every condition is one flag away from the reference row <span class="chip neu">C1</span>, so each difference is attributable to that one flag. Greyed cells hold the reference value; bold cells are what changed.</p>
+
+  <div class="note">
+    <p><b>Why there are two anchors.</b> <span class="chip neu">C0</span> is today's code, untouched — including <code>spectral</code> clustering, which may cost hours per run. Making it the reference would force every other condition to carry <code>spectral</code> too, and the matrix stops being affordable on one GPU. So <span class="chip neu">C1</span> is the same unfixed behaviour with only the clustering swapped for KMeans, and everything varies from that. <b>C1 repairs nothing</b> — it keeps the broken <code>tensor</code> diversity input, <code>kmer</code>, query weighting <code>off</code>. That's deliberate: the reference has to be the unfixed behaviour, or a difference like C3 − C1 would confound the diversity fix with everything else. C0 vs C1 then tells you whether the KMeans swap changed anything, which is what licenses reading the whole matrix as a statement about the real original.</p>
+  </div>
+  <div class="scroller">
+    <table>
+      <thead>
+        <tr>
+          <th class="id">ID</th>
+          <th>Condition</th>
+          <th>acquisition</th>
+          <th>cluster</th>
+          <th>div. input</th>
+          <th>div. metric</th>
+          <th>qw</th>
+          <th>norm</th>
+          <th>Isolates</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr class="grouprow"><td colspan="9">Anchors</td></tr>
+        <tr>
+          <td class="id">C0</td>
+          <td>The untouched original</td>
+          <td class="flag base">uncert_dist</td>
+          <td class="flag changed">spectral</td>
+          <td class="flag base">tensor</td>
+          <td class="flag base">kmer</td>
+          <td class="flag base">off</td>
+          <td class="flag base">minmax</td>
+          <td>Provenance anchor — exactly today's code. Differs from the reference in clustering only.</td>
+        </tr>
+        <tr>
+          <td class="id">C1</td>
+          <td><b>Reference</b> — the original, still unfixed, with KMeans swapped in</td>
+          <td class="flag base">uncert_dist</td>
+          <td class="flag base">kmeans</td>
+          <td class="flag base">tensor</td>
+          <td class="flag base">kmer</td>
+          <td class="flag base">off</td>
+          <td class="flag base">minmax</td>
+          <td>Nothing is repaired here. Every row below is this row plus one flag, so each difference is attributable.</td>
+        </tr>
+        <tr>
+          <td class="id">C2</td>
+          <td>Random acquisition</td>
+          <td class="flag changed">random</td>
+          <td class="flag base">kmeans</td>
+          <td class="flag base">tensor</td>
+          <td class="flag base">kmer</td>
+          <td class="flag base">off</td>
+          <td class="flag base">minmax</td>
+          <td>Whether any of this beats chance.</td>
+        </tr>
+
+        <tr class="grouprow groupsep"><td colspan="9">The fix you asked about</td></tr>
+        <tr>
+          <td class="id">C3</td>
+          <td>Batch diversity repaired, k-mer</td>
+          <td class="flag base">uncert_dist</td>
+          <td class="flag base">kmeans</td>
+          <td class="flag changed">sequence</td>
+          <td class="flag base">kmer</td>
+          <td class="flag base">off</td>
+          <td class="flag base">minmax</td>
+          <td>The value of farthest-point batch selection as originally designed.</td>
+        </tr>
+        <tr>
+          <td class="id">C4</td>
+          <td>Batch diversity, Hamming</td>
+          <td class="flag base">uncert_dist</td>
+          <td class="flag base">kmeans</td>
+          <td class="flag changed">sequence</td>
+          <td class="flag changed">hamming</td>
+          <td class="flag base">off</td>
+          <td class="flag base">minmax</td>
+          <td>k-mer vs Hamming, given 236-residue aligned sequences.</td>
+        </tr>
+        <tr>
+          <td class="id">C5</td>
+          <td>Batch diversity, embedding space</td>
+          <td class="flag base">uncert_dist</td>
+          <td class="flag base">kmeans</td>
+          <td class="flag changed">sequence</td>
+          <td class="flag changed">embedding</td>
+          <td class="flag base">off</td>
+          <td class="flag base">minmax</td>
+          <td>Whether model-space or sequence-space diversity is better — and whether trusting the early model hurts.</td>
+        </tr>
+        <tr>
+          <td class="id">C6</td>
+          <td>Diversity stage removed outright</td>
+          <td class="flag base">uncert_dist</td>
+          <td class="flag base">kmeans</td>
+          <td class="flag base">tensor</td>
+          <td class="flag changed">none</td>
+          <td class="flag base">off</td>
+          <td class="flag base">minmax</td>
+          <td>Confirms C1 ≡ C6, i.e. that the broken stage really is a no-op end to end.</td>
+        </tr>
+
+        <tr class="grouprow groupsep"><td colspan="9">Other dead or questionable machinery</td></tr>
+        <tr>
+          <td class="id">C7</td>
+          <td>New-query loss upweighting on</td>
+          <td class="flag base">uncert_dist</td>
+          <td class="flag base">kmeans</td>
+          <td class="flag base">tensor</td>
+          <td class="flag base">kmer</td>
+          <td class="flag changed">on</td>
+          <td class="flag base">minmax</td>
+          <td>Whether <code>new_query_weight = 7.0</code> helps each round's 96 points register.</td>
+        </tr>
+        <tr>
+          <td class="id">C8</td>
+          <td>Clustering removed</td>
+          <td class="flag base">uncert_dist</td>
+          <td class="flag changed">none</td>
+          <td class="flag base">tensor</td>
+          <td class="flag base">kmer</td>
+          <td class="flag base">off</td>
+          <td class="flag base">minmax</td>
+          <td>What the 2-way split contributes — it's the one live mechanism, and untested.</td>
+        </tr>
+        <tr>
+          <td class="id">C9</td>
+          <td>Rank normalization</td>
+          <td class="flag base">uncert_dist</td>
+          <td class="flag base">kmeans</td>
+          <td class="flag base">tensor</td>
+          <td class="flag base">kmer</td>
+          <td class="flag base">off</td>
+          <td class="flag changed">rank</td>
+          <td>Whether min-max's outlier sensitivity is flattening one of the two score terms.</td>
+        </tr>
+
+        <tr class="grouprow groupsep"><td colspan="9">Acquisition composition (alpha = 0.38 unless noted)</td></tr>
+        <tr>
+          <td class="id">C10</td>
+          <td>Pure uncertainty (<code>alpha = 1</code>)</td>
+          <td class="flag changed">uncert</td>
+          <td class="flag base">kmeans</td>
+          <td class="flag base">tensor</td>
+          <td class="flag base">kmer</td>
+          <td class="flag base">off</td>
+          <td class="flag base">minmax</td>
+          <td>Is the coverage term earning its 0.62 weight?</td>
+        </tr>
+        <tr>
+          <td class="id">C11</td>
+          <td>Pure coverage (<code>alpha = 0</code>)</td>
+          <td class="flag changed">dist</td>
+          <td class="flag base">kmeans</td>
+          <td class="flag base">tensor</td>
+          <td class="flag base">kmer</td>
+          <td class="flag base">off</td>
+          <td class="flag base">minmax</td>
+          <td>Is the uncertainty term earning its 0.38?</td>
+        </tr>
+        <tr>
+          <td class="id">C12</td>
+          <td>Exploitation term restored</td>
+          <td class="flag changed">greedy</td>
+          <td class="flag base">kmeans</td>
+          <td class="flag base">tensor</td>
+          <td class="flag base">kmer</td>
+          <td class="flag base">off</td>
+          <td class="flag base">minmax</td>
+          <td>Adds the unused <code>mean</code> term. Answers a different question — <em>finding</em> bright variants vs <em>modelling</em> the landscape.</td>
+        </tr>
+
+        <tr class="grouprow groupsep"><td colspan="9">Combined</td></tr>
+        <tr>
+          <td class="id">C13</td>
+          <td>All repairs, k-mer</td>
+          <td class="flag base">uncert_dist</td>
+          <td class="flag base">kmeans</td>
+          <td class="flag changed">sequence</td>
+          <td class="flag base">kmer</td>
+          <td class="flag changed">on</td>
+          <td class="flag changed">rank</td>
+          <td>Everything as designed. The headline "fixed" number.</td>
+        </tr>
+        <tr>
+          <td class="id">C14</td>
+          <td>All repairs, best metric from C3–C5</td>
+          <td class="flag base">uncert_dist</td>
+          <td class="flag base">kmeans</td>
+          <td class="flag changed">sequence</td>
+          <td class="flag changed">winner</td>
+          <td class="flag changed">on</td>
+          <td class="flag changed">rank</td>
+          <td>Best configuration. Run last, once C3–C5 have resolved.</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <h3>Reading the matrix</h3>
+  <ul class="tight wide">
+    <li><b>C1 vs C6</b> should be <em>identical</em> within seed noise. If they aren't, the no-op finding is wrong and everything downstream needs rechecking. It's a free correctness assertion — include it.</li>
+    <li><b>C2 vs everything</b> is the only comparison that establishes active learning works at all.</li>
+    <li><b>C3 vs C1</b> is the specific question you asked: what does repairing batch diversity buy?</li>
+    <li><b>C0 vs C1</b> should also be close. A large gap means clustering choice matters more than any of the fixes, which would be a finding in itself.</li>
+  </ul>
+</section>
+
+<section>
+  <div class="sec-head">
+    <h2>Further improvements worth considering</h2>
+    <span class="tag">beyond the matrix</span>
+  </div>
+
+  <div class="imps">
+
+    <div class="imp">
+      <div class="imp-label"><span class="chip crit">correctness</span></div>
+      <div class="imp-body">
+        <p class="imp-title">Budget exceeds pool size for 8 of 14 peaks</p>
+        <p><code>acquisition_budget_total = 960</code>, but only cgre1338 (8,934), cgre4111 (8,214), cgre132 (4,267), cgre9708 (4,180), cgre2880 (1,780) and cgre900x (1,276) have more than 960 candidates. For cgre985 (466) down to cgre1414 (60), AL would try to acquire the entire pool and the experiment degenerates.</p>
+        <p>Restrict the AL pool to peaks above ~2,000 rows, or scale the budget per pool. Either way, state the rule explicitly rather than letting it silently degenerate.</p>
+      </div>
+    </div>
+
+    <div class="imp">
+      <div class="imp-label"><span class="chip warn">performance</span></div>
+      <div class="imp-body">
+        <p class="imp-title">Redundant dataset writes inside the per-source loop</p>
+        <p><code>torch.save(unlabeled_dataset, dataset_path)</code> sits inside <code>for source in unique_sources</code> in <code>save_metrics</code>, so the same ~100 MB tensor is written once per source, per round. With 15 sources over 11 rounds that's roughly 16 GB of pointless I/O per run — on a shared cluster filesystem, plausibly more wall-clock than the training. Hoist it out of the loop.</p>
+      </div>
+    </div>
+
+    <div class="imp">
+      <div class="imp-label"><span class="chip warn">metric</span></div>
+      <div class="imp-body">
+        <p class="imp-title">Hamming is the better diversity metric here</p>
+        <p>k-mer Jaccard is what you reach for when sequences vary in length or aren't aligned. Every sequence here is exactly 236 residues, pre-aligned to a common parent, differing at a handful of positions — so Hamming is cheaper, exact, and far more sensitive. The k-mer route compresses a 2-residue and a 4-residue difference into nearly the same number (221 vs 215 shared 3-mers).</p>
+        <p>That's condition C4. If it wins, drop the k-mer path entirely rather than keeping both.</p>
+      </div>
+    </div>
+
+    <div class="imp">
+      <div class="imp-label"><span class="chip neu">statistics</span></div>
+      <div class="imp-body">
+        <p class="imp-title">Five seeds minimum, and report the spread</p>
+        <p>With 245 initial labels and 96 acquisitions per round, between-seed variance will be large relative to any effect you're chasing. <code>compute_SE</code> already aggregates across <code>num_runs</code> and prints mean ± SE — it just needs <code>num_runs &gt; 1</code>, which the shipped config never sets.</p>
+        <p>Prefer 5 independent seeds via the harness over <code>num_runs=5</code> inside one process, so a crashed run costs one seed instead of all five.</p>
+      </div>
+    </div>
+
+    <div class="imp">
+      <div class="imp-label"><span class="chip neu">method</span></div>
+      <div class="imp-body">
+        <p class="imp-title">Report AL curves, not just endpoints</p>
+        <p>The interesting result isn't R² after 960 acquisitions — it's the shape of the curve: how fast each strategy climbs, and at what budget it overtakes random. Log every metric at every round against labeled-set size, which is what the shared results CSV is for. A strategy that reaches the same endpoint in 3 rounds instead of 10 is the actual win, and an endpoint-only table hides it.</p>
+      </div>
+    </div>
+
+    <div class="imp">
+      <div class="imp-label"><span class="chip neu">method</span></div>
+      <div class="imp-body">
+        <p class="imp-title">Decide what AL is optimizing for</p>
+        <p>The current score is pure exploration — uncertainty plus coverage — which optimizes a model that predicts the whole landscape well. The unused <code>mean</code> term would make it exploitation: find the brightest variants. These are different experiments with different success metrics (R² on held-out vs. max brightness found within budget), and the leftover dead code suggests the project has been both.</p>
+        <p>Worth settling with Jannis before the runs, because it determines which column of the results table is the headline.</p>
+      </div>
+    </div>
+
+    <div class="imp">
+      <div class="imp-label"><span class="chip neu">infra</span></div>
+      <div class="imp-body">
+        <p class="imp-title">Cluster execution</p>
+        <p>The model is 4.7M parameters and ~19 MB — a single H100 is enormously oversized for one run, and the GPU sits idle during clustering and acquisition. Run 3 array tasks concurrently on the one card (<code>--array=0-74%3</code>, 15 conditions × 5 seeds) and you'll roughly triple throughput at no memory risk.</p>
+        <p>Cap threads per task (<code>OMP_NUM_THREADS=6</code>) so three concurrent sklearn processes don't oversubscribe your 12 physical cores. <code>num_workers</code> resolves to <code>min(8, 24//2) = 8</code> per task, which is too many at concurrency 3 — make it a config value.</p>
+      </div>
+    </div>
+
+    <div class="imp">
+      <div class="imp-label"><span class="chip neu">infra</span></div>
+      <div class="imp-body">
+        <p class="imp-title">bf16 instead of fp16 on H100</p>
+        <p><code>train()</code> uses <code>torch.cuda.amp.autocast(dtype=torch.float16)</code> with a <code>GradScaler</code>. On H100, bf16 has the same throughput, needs no loss scaling, and removes a class of silent overflow. Also worth clearing the two deprecation warnings (<code>torch.cuda.amp.*</code> → <code>torch.amp.*</code>) while you're in there.</p>
+      </div>
+    </div>
+
+  </div>
+</section>
+
+<section>
+  <div class="sec-head">
+    <h2>Fixed experimental setup</h2>
+    <span class="tag">hold constant</span>
+  </div>
+  <p class="wide">Every condition shares this, so that only the flags differ.</p>
+  <ul class="tight wide">
+    <li><b>Train peak</b> — <code>cgreGFPWT-00</code> (24,540 rows, the single-parent cgreGFP library).</li>
+    <li><b>AL pool</b> — <code>cgre1338-06</code> (8,934) as primary; replicate the winning conditions on <code>cgre4111-12</code> (8,214) to check the result isn't peak-specific.</li>
+    <li><b>Frozen test set</b> — a fixed fraction of the pool held out before round 0, never acquirable, identical across conditions and seeds.</li>
+    <li><b>Budget</b> — 96 × 10 rounds, uniform schedule (<code>get_budget(..., uniform=True)</code>, as <code>active_learning</code> already passes). The harmonic-decay branch is currently unreachable; leave it out of scope.</li>
+    <li><b>Model</b> — AL defaults: <code>hidden_channels=512</code>, <code>depth_conv=5</code>, <code>depth_ffnn=3</code>, <code>epochs=11</code>, <code>starting_epoch_multiplier=9</code>. Note these differ from the non-AL defaults, so AL and non-AL numbers are not directly comparable.</li>
+    <li><b>Seeds</b> — 0, 1, 2, 3, 4.</li>
+  </ul>
+</section>
+
+</div>

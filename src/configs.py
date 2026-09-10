@@ -1,4 +1,4 @@
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 
 @dataclass
 class ALState:
@@ -11,7 +11,8 @@ class DataConfig:
     val_size: float = 0.1
     test_size: float = 0.0
     batch_size: int = 1024
-    split: str = "perc"  
+    split: str = "perc"
+    num_workers: int = -1  # -1 keeps the original min(8, cpu_count//2)
 
 @dataclass
 class TrainConfig:
@@ -40,11 +41,39 @@ class ActiveLearningConfig:
 
 
 @dataclass
+class AblationConfig:
+    """
+    Every default here reproduces the behaviour of the original code, so an
+    unmodified run is condition C0 and each fix is a single flag flip.
+    """
+
+    # --- acquisition scoring (compute_acquisition) ---
+    acquisition: str = "uncert_dist"   # uncert_dist | random | uncert | dist | greedy
+    normalize: str = "minmax"          # minmax | rank
+    beta_mean: float = 0.0             # weight on the predicted-brightness term
+
+    # --- batch selection (get_queried_samples) ---
+    cluster: str = "spectral"          # spectral | kmeans | none
+    diversity_input: str = "tensor"    # tensor (original, degenerate) | sequence
+    diversity_metric: str = "kmer"     # kmer | hamming | embedding | none
+
+    # --- training (train) ---
+    use_query_weight: bool = False     # honour al_cfg.new_query_weight
+
+    # --- measurement apparatus ---
+    seed: int = 0
+    frozen_eval: bool = False          # hold out a fixed test set before round 0
+    eval_frac: float = 0.2             # fraction of the pool frozen when frozen_eval
+    frozen_val: bool = False           # stop diverting 5% of acquisitions into val
+
+
+@dataclass
 class Config:
     data_cfg: DataConfig
     train_cfg: TrainConfig
     model_cfg: ModelConfig
     al_cfg: ActiveLearningConfig
+    abl_cfg: AblationConfig = field(default_factory=AblationConfig)
 
 NON_AL_TRAIN_DEFAULTS: dict[str, float] = {
     "lr":   0.00038136563138314996,

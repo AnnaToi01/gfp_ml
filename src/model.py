@@ -283,7 +283,7 @@ def get_embeddings(model: ProtCNN, dataset: torch.utils.data.TensorDataset, batc
 
 
 def train(train_dataset: TensorDataset, val_dataset: TensorDataset, al_cfg: ActiveLearningConfig, data_cfg: DataConfig, train_cfg: TrainConfig, model_cfg: ModelConfig, 
-          model: Optional[ProtCNN]=None, verbose: bool=False)->tuple[ProtCNN, torch.Tensor, torch.Tensor]:
+          model: Optional[ProtCNN]=None, verbose: bool=False, abl_cfg: Optional[AblationConfig]=None)->tuple[ProtCNN, torch.Tensor, torch.Tensor]:
     """
     Trains either a provided model on the training dataset or creates a new model if none is provided
     ----------
@@ -329,12 +329,22 @@ def train(train_dataset: TensorDataset, val_dataset: TensorDataset, al_cfg: Acti
     best_model = copy.deepcopy(model.state_dict())
     best_val_loss: float = float("inf")
     
-    num_workers: int = min(8, os.cpu_count() // 2)
-    train_loader = DataLoader(train_dataset, batch_size=data_cfg.batch_size, shuffle=True,  num_workers=num_workers 
-                              ,pin_memory=True, persistent_workers=True, prefetch_factor=4)
-    
-    val_loader   = DataLoader(val_dataset,   batch_size=data_cfg.batch_size, shuffle=False, num_workers=num_workers ,
-                              pin_memory=True, persistent_workers=True, prefetch_factor=4)
+    num_workers: int = data_cfg.num_workers if getattr(data_cfg, "num_workers", -1) >= 0 else min(8, os.cpu_count() // 2)
+
+    loader_kw: dict = dict(pin_memory=True)
+    if num_workers > 0:
+        loader_kw.update(num_workers=num_workers, persistent_workers=True, prefetch_factor=4)
+    else:
+        loader_kw.update(num_workers=0)
+
+    # Seeded generator so batch order is reproducible independently of other RNG use.
+    gen = None
+    if abl_cfg is not None:
+        gen = torch.Generator()
+        gen.manual_seed(abl_cfg.seed)
+
+    train_loader = DataLoader(train_dataset, batch_size=data_cfg.batch_size, shuffle=True, generator=gen, **loader_kw)
+    val_loader   = DataLoader(val_dataset,   batch_size=data_cfg.batch_size, shuffle=False, **loader_kw)
     
     train_mean, train_std = compute_train_stats(train_loader)
         
@@ -357,13 +367,14 @@ def train(train_dataset: TensorDataset, val_dataset: TensorDataset, al_cfg: Acti
 
                 yb: torch.Tensor = normalize_targets(y=yb,train_mean=train_mean,train_std=train_std)
                 
-                mask = (ob == 1)
-                weights = torch.full_like(
-                    yb,
-                    1.0 - epoch / epochs,
-                )
-                weights[mask] = al_cfg.new_query_weight 
-                weights: torch.Tensor = torch.ones_like(yb)
+                if abl_cfg is not None and abl_cfg.use_query_weight:
+                    # Upweight freshly-acquired points so each round's acquisitions
+                    # are not drowned out by the existing labeled set.
+                    mask = (ob == 1)
+                    weights = torch.full_like(yb, 1.0 - epoch / epochs)
+                    weights[mask] = al_cfg.new_query_weight
+                else:
+                    weights: torch.Tensor = torch.ones_like(yb)
                     
                 loss_fn__no_reduc = torch.nn.HuberLoss(reduction="none")
                 loss: torch.Tensor = loss_fn__no_reduc(out_reg, yb)

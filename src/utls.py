@@ -9,7 +9,7 @@ import pandas as pd
 from optuna.samplers  import TPESampler
 from collections      import defaultdict
 from optuna.pruners   import HyperbandPruner
-from sklearn.cluster  import SpectralClustering
+from sklearn.cluster  import SpectralClustering, KMeans
 from typing           import Optional, Set, Tuple, List
 from torch.utils.data import TensorDataset, Subset, ConcatDataset
 
@@ -17,15 +17,19 @@ from src.model        import *
 from src.configs      import *
 from src.data_loading import *
 from src.ploting      import *
+from src.repro        import set_seed, seeded_generator
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
-def setup()->None:
+def setup(seed: Optional[int]=None)->None:
     """
-        Sets the backend variables.
+        Sets the backend variables, and seeds every RNG when `seed` is given.
 
         Parameters
         ----------
+        seed : Optional[int]
+            When provided, makes the run reproducible via src.repro.set_seed.
+            Note this disables the cuDNN autotuner.
 
         Returns
         -------
@@ -37,6 +41,9 @@ def setup()->None:
     torch.backends.cudnn.allow_tf32 = True
     torch.autograd.set_detect_anomaly(False)
     torch.autograd.profiler.profile(False)
+
+    if seed is not None:
+        set_seed(seed)
 
 def create_config(**kwargs):
     """
@@ -87,6 +94,7 @@ def create_config(**kwargs):
     train_cfg: TrainConfig = TrainConfig(**kwargs.get("train_cfg", {}))
     model_cfg: ModelConfig = ModelConfig(**kwargs.get("model_cfg", {}))
     al_cfg: ActiveLearningConfig = ActiveLearningConfig(**kwargs.get("al_cfg", {}))
+    abl_cfg: AblationConfig = AblationConfig(**kwargs.get("abl_cfg", {}))
 
     if not train_cfg.use_al:
         for k, v in NON_AL_TRAIN_DEFAULTS.items():
@@ -101,6 +109,7 @@ def create_config(**kwargs):
         train_cfg=train_cfg,
         model_cfg=model_cfg,
         al_cfg=al_cfg,
+        abl_cfg=abl_cfg,
     )
 
 def assign_id_to_gene(peaks_df: List[pd.DataFrame]):
@@ -225,7 +234,8 @@ def compute_SE(metrics_list)->None:
             se = np.std(values) / np.sqrt(len(values))
             print(f"Metric: {metric} Mean: {np.mean(values):.4f} ± {se:.4f} (n={len(values)})")
 
-def update_state(state: ALState, new_samples: List[int], pool_dataset: TensorDataset, val_dataset: Subset)-> tuple[ALState,ConcatDataset]:
+def update_state(state: ALState, new_samples: List[int], pool_dataset: TensorDataset, val_dataset: Subset,
+                 abl_cfg: Optional[AblationConfig]=None)-> tuple[ALState,ConcatDataset]:
     """
         Moves selected samples from unlabeled -> labeled.
         Adds a number of new samples to validation set.
@@ -251,7 +261,14 @@ def update_state(state: ALState, new_samples: List[int], pool_dataset: TensorDat
 
     random.shuffle(new_samples)
     new_set: set[int] = set(new_samples)
-    
+
+    # Diverting acquisitions into validation makes model selection depend on the
+    # acquisition strategy, which confounds any comparison between strategies.
+    if abl_cfg is not None and abl_cfg.frozen_val:
+        updated_labeled: list[int] = state.labeled + list(new_samples)
+        updated_unlabeled: list[int] = [i for i in state.unlabeled if i not in new_set]
+        return ALState(labeled=updated_labeled, unlabeled=updated_unlabeled), val_dataset
+
     n_val = max(1, int(0.05 * len(new_samples)))
 
     val_samples: list[int] = new_samples[:n_val]
@@ -392,6 +409,61 @@ def get_experiment_name(cfg: Config, train_peaks: list[str], test_peaks: list[st
     
     return exp_name + f"_{cfg.data_cfg.split}"
 
+def pairwise_hamming(seqs: List[str])->np.ndarray:
+    """
+        Hamming distance between every pair of equal-length sequences,
+        normalised to [0, 1]. Exact and vectorised -- appropriate here because
+        every sequence is the same length and aligned to a common parent.
+
+        Parameters
+        ----------
+        seqs : list[str]
+            Equal-length amino acid sequences.
+
+        Returns
+        -------
+        np.ndarray
+            (n, n) matrix of normalised Hamming distances.
+    """
+
+    arr: np.ndarray = np.frombuffer("".join(seqs).encode(), dtype=np.uint8).reshape(len(seqs), -1)
+    return (arr[:, None, :] != arr[None, :, :]).mean(axis=2)
+
+
+def select_farthest_point(dist: np.ndarray, k: int)->List[int]:
+    """
+        Greedy farthest-point (k-center) traversal over a precomputed distance
+        matrix. Seeds at index 0 to match the original implementation.
+
+        Parameters
+        ----------
+        dist : np.ndarray
+            (n, n) pairwise distance matrix.
+        k : int
+            Number of indices to return.
+
+        Returns
+        -------
+        list[int]
+            Selected indices, in the order chosen.
+    """
+
+    n: int = dist.shape[0]
+    k = min(k, n)
+
+    selected: list[int] = [0]
+    min_dist: np.ndarray = dist[0].copy()
+    min_dist[0] = -1.0
+
+    while len(selected) < k:
+        nxt: int = int(np.argmax(min_dist))
+        selected.append(nxt)
+        min_dist = np.minimum(min_dist, dist[nxt])
+        min_dist[selected] = -1.0
+
+    return selected
+
+
 def select_distance_based(seqs: List[str], k: int, kmer_size: int=3)->List[int]:
     """
         Given a list of n sequences selects k spread out sequences and returns the indices.
@@ -447,7 +519,8 @@ def select_distance_based(seqs: List[str], k: int, kmer_size: int=3)->List[int]:
 
     return selected
 
-def compute_acquisition(model: ProtCNN, labeled_dataset: TensorDataset, unlabeled_dataset: TensorDataset, al_cfg: ActiveLearningConfig)->tuple[np.ndarray,torch.Tensor]:
+def compute_acquisition(model: ProtCNN, labeled_dataset: TensorDataset, unlabeled_dataset: TensorDataset, al_cfg: ActiveLearningConfig,
+                        abl_cfg: Optional[AblationConfig]=None)->tuple[np.ndarray,torch.Tensor]:
       
     """
         Computes the acquisition scores.
@@ -472,18 +545,45 @@ def compute_acquisition(model: ProtCNN, labeled_dataset: TensorDataset, unlabele
     """
     
     
-    min_dist, unlabeled_emb = get_mind_dists(model, labeled_dataset, unlabeled_dataset) 
-    mean, uncert = predict(model, unlabeled_dataset, num_samples=25)  
-    
-    uncert = (uncert - uncert.min()) / (uncert.max() - uncert.min() + 1e-8)
-    min_dist = (min_dist - min_dist.min()) / (min_dist.max() - min_dist.min() + 1e-8)
-    mean = (mean - mean.min()) / (mean.max() - mean.min() + 1e-8)
-    
+    min_dist, unlabeled_emb = get_mind_dists(model, labeled_dataset, unlabeled_dataset)
+    mean, uncert = predict(model, unlabeled_dataset, num_samples=25)
+
     min_dist: np.ndarray = np.asarray(min_dist).squeeze()
     uncert: np.ndarray = np.asarray(uncert).squeeze()
     mean: np.ndarray = np.asarray(mean).squeeze()
-    
-    acquisition: np.ndarray = al_cfg.alpha * uncert + (1 - al_cfg.alpha) * min_dist 
+
+    mode: str = abl_cfg.acquisition if abl_cfg is not None else "uncert_dist"
+    norm: str = abl_cfg.normalize if abl_cfg is not None else "minmax"
+
+    if mode == "random":
+        # Uniform baseline. Drawn from the seeded global numpy RNG.
+        return np.random.rand(len(uncert)), unlabeled_emb
+
+    def _scale(v: np.ndarray)->np.ndarray:
+        if norm == "rank":
+            # Percentile transform: immune to the single-outlier compression
+            # that min-max suffers from.
+            order = np.argsort(np.argsort(v))
+            return order / max(len(v) - 1, 1)
+        return (v - v.min()) / (v.max() - v.min() + 1e-8)
+
+    uncert = _scale(uncert)
+    min_dist = _scale(min_dist)
+    mean = _scale(mean)
+
+    if mode == "uncert":
+        acquisition: np.ndarray = uncert
+    elif mode == "dist":
+        acquisition: np.ndarray = min_dist
+    else:
+        acquisition: np.ndarray = al_cfg.alpha * uncert + (1 - al_cfg.alpha) * min_dist
+
+    beta: float = abl_cfg.beta_mean if abl_cfg is not None else 0.0
+    if mode == "greedy" and beta == 0.0:
+        beta = 0.5
+    if beta:
+        acquisition = (1 - beta) * acquisition + beta * mean
+
     return acquisition, unlabeled_emb
 
 def compute_assignments(unique_clusters: np.ndarray, assignments: np.ndarray, unlabeled_global: np.ndarray, budget: int)->list[int]:
@@ -549,8 +649,9 @@ def compute_assignments(unique_clusters: np.ndarray, assignments: np.ndarray, un
         
     return cluster_budgets
 
-def get_queried_samples(model: ProtCNN, al_cfg: ActiveLearningConfig, budget: int, state: ALState, base_dataset: list, 
-                        labeled_dataset: torch.utils.data.Subset, unlabeled_dataset: torch.utils.data.Subset)->List[int]:
+def get_queried_samples(model: ProtCNN, al_cfg: ActiveLearningConfig, budget: int, state: ALState, base_dataset: list,
+                        labeled_dataset: torch.utils.data.Subset, unlabeled_dataset: torch.utils.data.Subset,
+                        abl_cfg: Optional[AblationConfig]=None, sequences: Optional[List[str]]=None)->List[int]:
     
     """
         Computes the acquisition score for each point and returns the next points to be querried.
@@ -571,16 +672,29 @@ def get_queried_samples(model: ProtCNN, al_cfg: ActiveLearningConfig, budget: in
             Subset of the data which is labeled.
         unlabeled_dataset:torch.utils.data.Subset
             Subset of the data which is unlabeled.
+        abl_cfg: Optional[AblationConfig]
+            Selects the clustering backend and the batch-diversity behaviour.
+        sequences: Optional[List[str]]
+            Amino acid sequences indexed like base_dataset. Required for
+            abl_cfg.diversity_input == "sequence".
         Returns
         -------
         list[int]
             Indices of the new selected samples.
     """
-    acquisition, unlabeled_emb = compute_acquisition(model, labeled_dataset, unlabeled_dataset, al_cfg)
-    
-    clustering = SpectralClustering(n_clusters=2, random_state=0)
-    assignments: np.ndarray = clustering.fit_predict(unlabeled_emb.cpu().numpy())
-    
+    acquisition, unlabeled_emb = compute_acquisition(model, labeled_dataset, unlabeled_dataset, al_cfg, abl_cfg)
+
+    emb_np: np.ndarray = unlabeled_emb.cpu().numpy()
+    cluster_mode: str = abl_cfg.cluster if abl_cfg is not None else "spectral"
+    seed: int = abl_cfg.seed if abl_cfg is not None else 0
+
+    if cluster_mode == "kmeans":
+        assignments: np.ndarray = KMeans(n_clusters=2, n_init=10, random_state=seed).fit_predict(emb_np)
+    elif cluster_mode == "none":
+        assignments: np.ndarray = np.zeros(len(emb_np), dtype=int)
+    else:
+        assignments: np.ndarray = SpectralClustering(n_clusters=2, random_state=seed).fit_predict(emb_np)
+
     unlabeled_global: np.ndarray = np.asarray(state.unlabeled)
     unique_clusters: np.ndarray = np.unique(assignments)
     selected: list = []
@@ -604,11 +718,34 @@ def get_queried_samples(model: ProtCNN, al_cfg: ActiveLearningConfig, budget: in
         top_local: np.ndarray = np.argsort(-acquisition_cluster)[:diversity_budget]
    
         top_global: list = cluster_global[top_local].tolist()
-            
-        seqs: list = [base_dataset[i][0] for i in top_global]
-        
-        diverse_local: list = select_distance_based(seqs, cluster_budget)
-        
+
+        div_input: str = abl_cfg.diversity_input if abl_cfg is not None else "tensor"
+        div_metric: str = abl_cfg.diversity_metric if abl_cfg is not None else "kmer"
+
+        if div_metric == "none":
+            # Skip the re-ranking entirely: take the highest-scoring points.
+            diverse_local: list = list(range(min(cluster_budget, len(top_global))))
+
+        elif div_input == "sequence":
+            if sequences is None:
+                raise ValueError("diversity_input='sequence' requires `sequences`")
+            seqs: list[str] = [sequences[i] for i in top_global]
+
+            if div_metric == "hamming":
+                diverse_local = select_farthest_point(pairwise_hamming(seqs), cluster_budget)
+            elif div_metric == "embedding":
+                sub: np.ndarray = emb_np[selected_unlabeled_idx][top_local]
+                dist = torch.cdist(torch.as_tensor(sub), torch.as_tensor(sub)).numpy()
+                diverse_local = select_farthest_point(dist, cluster_budget)
+            else:
+                diverse_local = select_distance_based(seqs, cluster_budget)
+
+        else:
+            # Original path: one-hot tensors, which makes the k-mer intersection
+            # degenerate. Kept as the reference condition.
+            seqs: list = [base_dataset[i][0] for i in top_global]
+            diverse_local: list = select_distance_based(seqs, cluster_budget)
+
         selected.extend([top_global[i] for i in diverse_local])
 
     return selected
@@ -673,44 +810,73 @@ def active_learning(train_df: pd.DataFrame, val_df: pd.DataFrame, unlabeled_df: 
             The trained model
     """
    
+    abl_cfg: AblationConfig = getattr(cfg, "abl_cfg", None) or AblationConfig()
+
+    pool_df: pd.DataFrame = pd.concat([train_df, unlabeled_df], ignore_index=True)
+
     base_dataset:TensorDataset = create_dataset(
-        pd.concat([train_df, unlabeled_df], ignore_index=True),
+        pool_df,
         origin=(train_df["origin"].tolist() + unlabeled_df["origin"].tolist()),
     )
-    
+
+    # Indexed like base_dataset, so get_queried_samples can do sequence-space diversity.
+    sequences: list[str] = pool_df["sequence"].tolist()
+
     val_dataset: TensorDataset = create_dataset(val_df)
-    
+
     n_labeled:int = len(train_df)
     n_total:int = len(base_dataset)
-    
-    
-    print(f"Starting Active Learning with {n_labeled} labeled samples and {n_total - n_labeled} unlabeled samples.")
-    
+
+    pool_idx: list[int] = list(range(n_labeled, n_total))
+
+    # A frozen test set carved out before round 0: never acquirable, and identical
+    # across rounds, conditions and seeds. Without it the eval set shrinks every
+    # round and differs between conditions, so metrics are not comparable.
+    eval_dataset: Optional[Subset] = None
+    if abl_cfg.frozen_eval:
+        rng = np.random.default_rng(abl_cfg.seed)
+        perm = rng.permutation(len(pool_idx))
+        n_eval: int = int(round(abl_cfg.eval_frac * len(pool_idx)))
+        eval_idx: list[int] = [pool_idx[i] for i in perm[:n_eval]]
+        pool_idx = [pool_idx[i] for i in perm[n_eval:]]
+        eval_dataset = Subset(base_dataset, eval_idx)
+        print(f"Frozen test set: {len(eval_idx)} samples held out; {len(pool_idx)} acquirable.")
+
+    print(f"Starting Active Learning with {n_labeled} labeled samples and {len(pool_idx)} unlabeled samples.")
+
     state = ALState(
         labeled=list(range(n_labeled)),
-        unlabeled=list(range(n_labeled, n_total))
+        unlabeled=pool_idx,
     )
-    
+
+    history: list[dict] = []
+
     for r in range(0, cfg.al_cfg.rounds + 1):
-        budget = get_budget(cfg.al_cfg, r, unlabeled_df, uniform=True) 
+        budget = get_budget(cfg.al_cfg, r, unlabeled_df, uniform=True)
         print(f"Active Learning Round {r}/{cfg.al_cfg.rounds} with a budget of {budget} samples.")
 
         labeled_dataset = Subset(base_dataset, state.labeled)
         unlabeled_dataset = Subset(base_dataset, state.unlabeled)
-        
-        
+
+
         model, y_mean, y_std = train(model=model,train_dataset=labeled_dataset,val_dataset=val_dataset,al_cfg=cfg.al_cfg,
-                               train_cfg=cfg.train_cfg,model_cfg=cfg.model_cfg, data_cfg=cfg.data_cfg, verbose=True)
-        
+                               train_cfg=cfg.train_cfg,model_cfg=cfg.model_cfg, data_cfg=cfg.data_cfg, verbose=True,
+                               abl_cfg=abl_cfg)
+
+        n_labeled_now: int = len(state.labeled)
+
         if r < cfg.al_cfg.rounds:
-          
-            new_samples = get_queried_samples(model, cfg.al_cfg, budget, state, base_dataset, labeled_dataset, unlabeled_dataset)
-            state, val_dataset = update_state(state, new_samples, base_dataset, val_dataset)
-        
-        unlabeled_dataset = Subset(base_dataset, state.unlabeled)
-        metrics = eval_round(model, val_dataset, unlabeled_dataset, exp_name=exp_name, r=r, trial=trial, y_mean=y_mean, y_std=y_std)
-            
-    return model, metrics
+
+            new_samples = get_queried_samples(model, cfg.al_cfg, budget, state, base_dataset, labeled_dataset, unlabeled_dataset,
+                                              abl_cfg=abl_cfg, sequences=sequences)
+            state, val_dataset = update_state(state, new_samples, base_dataset, val_dataset, abl_cfg=abl_cfg)
+
+        test_dataset = eval_dataset if eval_dataset is not None else Subset(base_dataset, state.unlabeled)
+        metrics = eval_round(model, val_dataset, test_dataset, exp_name=exp_name, r=r, trial=trial, y_mean=y_mean, y_std=y_std)
+
+        history.append({"round": r, "n_labeled": n_labeled_now, "n_test": len(test_dataset), **metrics})
+
+    return model, metrics, history
 
 def run_training(peaks_df: list[pd.DataFrame], train_peaks: List[str], test_peaks: Optional[List[str]], cfg: Config, 
                  trial: Optional[optuna.trial.Trial]=None, split: str="perc") -> Tuple[ProtCNN,float]:
@@ -740,19 +906,22 @@ def run_training(peaks_df: list[pd.DataFrame], train_peaks: List[str], test_peak
     """
   
     metrics_list: list[float] = []
-    
+    history: list[dict] = []
+
     for j in range(cfg.train_cfg.num_runs):
         print(f"Run {j+1}/{cfg.train_cfg.num_runs}")
         exp_name:str = get_experiment_name(cfg, train_peaks, test_peaks, round=j) 
 
         train_df_merged, test_df_merged = separate_peaks(peaks_df, train_peaks, test_peaks)
         
-        train_df, val_df, unlabeled_df = split_data(train_df=train_df_merged, unlabeled_df=test_df_merged, data_cfg=cfg.data_cfg)
+        train_df, val_df, unlabeled_df = split_data(train_df=train_df_merged, unlabeled_df=test_df_merged, data_cfg=cfg.data_cfg,
+                                                    seed=getattr(cfg, 'abl_cfg', None).seed + j if getattr(cfg, 'abl_cfg', None) is not None else None)
         
         print(f"Dataset sizes - Train: {len(train_df)}, Val: {len(val_df)}, Unlabeled: {len(unlabeled_df)}")
                 
         if cfg.train_cfg.use_al:
-            model, metric = active_learning(train_df=train_df, val_df=val_df, unlabeled_df=unlabeled_df, model=None, cfg=cfg, exp_name=exp_name,trial=trial)
+            model, metric, hist = active_learning(train_df=train_df, val_df=val_df, unlabeled_df=unlabeled_df, model=None, cfg=cfg, exp_name=exp_name,trial=trial)
+            history.extend({**h, 'run': j} for h in hist)
         else:
             model, metric = standard_full_train(train_df=train_df, val_df=val_df, unlabeled_df=unlabeled_df, 
                                                 model=None, cfg=cfg,exp_name=exp_name)
@@ -761,7 +930,7 @@ def run_training(peaks_df: list[pd.DataFrame], train_peaks: List[str], test_peak
     
     compute_SE(metrics_list)
 
-    return model, metrics_list[-1]
+    return model, metrics_list[-1], history
  
 def eval_model(base_path: str, cfg: Config)->None:
     """
