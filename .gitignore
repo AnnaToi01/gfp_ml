@@ -12,9 +12,12 @@ venv/
 # experiment output
 results/
 project/
-output/
 slurm-*.out
 logs/
 *.pth
 *.db
 *.pkl.gz
+
+# run outputs are local, except the committed example
+output/*
+!output/example/
